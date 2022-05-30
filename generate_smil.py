@@ -1,144 +1,151 @@
-class SMILBase():
-    def __init__(self):
-        pass
-
-    def get_smil(self):
-        return "SMILBase"
-
-    def get_name(self):
-        return "Base"
-
-
-class SVG(SMILBase):
-    def __init__(self, width, height):
-        self.width = width
-        self.height = height
-        self.objects = []
-        self.animations = []
-
-    def get_name(self):
-        return f"<svg width={self.width} height={self.height}>\n"
-
-    def get_smil(self):
-        smil = self.get_name()
-        for object in self.objects:
-            smil = smil + object.get_smil()
-        for animation in self.animations:
-            smil = smil + animation.get_smil()
-        smil = smil + "</svg>"
-        return smil
-
-    def append_object(self, object):
-        self.objects.append(object)
-
-    def append_animation(self, animation):
-        self.animations.append(animation)
-
-
-class Object(SMILBase):
-    def __init__(self):
-        self.animations = []
-
-    def append_animation(self, animation):
-        self.animations.append(animation)
-
-    def get_smil(self):
-        smil = self.get_name()
-        for animation in self.animations:
-            smil = smil + animation.get_smil()
-        return smil
-
-
-class Circle(Object):
-    def __init__(self, id, cx, cy, r, color):
-        Object.__init__(self)
-        self.cx = cx
-        self.cy = cy
-        self.r = r
-        self.color = color
-        self.id = id
-
-    def get_name(self):
-        return  f"  <circle id=\"{self.id}\" r={self.r} cx={self.cx} cy={self.cy} fill=\"{self.color}\"/>\n"
-
-
-class Circle(Object):
-    def __init__(self, id, cx, cy, r, color):
-        Object.__init__(self)
-        self.cx = cx
-        self.cy = cy
-        self.r = r
-        self.color = color
-        self.id = id
-
-    def get_name(self):
-        return  f"  <circle id=\"{self.id}\" r={self.r} cx={self.cx} cy={self.cy} fill=\"{self.color}\"/>\n"
-
-
-class Rectangle(Object):
-    def __init__(self, id, x, y, width, height, color):
-        Object.__init__(self)
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-        self.color = color
-        self.id = id
-
-    def get_name(self):
-        return  f"  <rect id=\"{self.id}\" x={self.x} y={self.y} width={self.width} height={self.height} fill=\"{self.color}\"/>\n"
-
-
-class Text(Object):
-    def __init__(self, id, x, y, color, text):
-        Object.__init__(self)
-        self.x = x
-        self.y = y
+class XML():
+    def __init__(self, name, text="", *children, **attributes):
+        self.name = name
+        self.attributes = attributes
+        self.children = list(children)
         self.text = text
-        self.color = color
-        self.id = id
 
-    def get_name(self):
-        return  f"  <text id=\"{self.id}\" x={self.x} y={self.y} fill=\"{self.color}\">{self.text}</text>\n"
+        if 'from_' in self.attributes:
+            self.attributes['from'] = self.attributes['from_']
+            del self.attributes['from_']
+
+    def append(self, child):
+        self.children.append(child)
+
+    def __setitem__(self, key, value):
+        self.attributes[key] = value
+
+    def __getitem__(self, key):
+        return self.attributes[key]
+
+    def __delitem__(self, key):
+        del self.attributes[key]
+
+    def __str__(self):
+        return self.to_string()
+
+    def to_string(self, indent=0):
+        s = "  " * indent + "<" + self.name
+        for key, value in self.attributes.items():
+            s += " " + key + "="
+            if isinstance(value, str):
+                s += '"' + value + '"'
+            else:
+                assert isinstance(value, int)
+                s += str(value)
+        if self.children or self.text:
+            s += ">\n"
+            for child in self.children:
+                s += child.to_string(indent + 1)
+            if self.text:
+                s += "  " * (indent + 1) + self.text + "\n"
+            s += "  " * indent + "</" + self.name + ">\n"
+        else:
+            s += " />\n"
+        return s
+
+class SVG(XML):
+    def __init__(self, width, height, *children, **attributes):
+        super().__init__("svg", *children, width=width, height=height, **attributes)
 
 
-class Animation(SMILBase):
-    def __init__(self, id, attribute, _from, to, dur, begin):
-        self.id = id
-        self.attribute = attribute
-        self._from = _from
-        self.to = to
-        self.dur = dur
-        self.begin = begin
-
-    def get_smil(self):
-        smil = f"  <animate xlink:href=\"#{self.id}\" from={self._from} to={self.to} dur=\"{self.dur}\""
-        smil = smil + f" begin=\"{self.begin}\" fill=\"freeze\" attributeName=\"{self.attribute}\""
-        smil = smil + "/>\n"
-        return smil
+class Circle(XML):
+    def __init__(self, cx, cy, r, *children, **attributes):
+        super().__init__("circle", *children, cx=cx, cy=cy, r=r, **attributes)
 
 
-class Set(SMILBase):
-    def __init__(self, id, attribute, to, begin):
-        self.id = id
-        self.attribute = attribute
-        self.to = to
-        self.begin = begin
+class Rect(XML):
+    def __init__(self, x, y, width, height, *children, **attributes):
+        super().__init__("rect", *children, x=x, y=y, width=width, height=height, **attributes)
 
-    def get_smil(self):
-        smil = f"  <set xlink:href=\"#{self.id}\" to={self.to}"
-        smil = smil + f" begin=\"{self.begin}\" attributeName=\"{self.attribute}\""
-        smil = smil + "/>\n"
-        return smil
+
+class Text(XML):
+    def __init__(self, x, y, text, *children, **attributes):
+        super().__init__("text", text, *children, x=x, y=y, **attributes)
+        self.text = text
+
+
+class Path(XML):
+    def __init__(self, d, *children, **attributes):
+        super().__init__("path", *children, d=d, **attributes)
+
+
+class MPath(XML):
+    def __init__(self, object, *children, **attributes):
+        super().__init__("mpath", *children, **attributes)
+        self.object = object
+        assert 'id' in object.attributes
+        self['xlink:href'] = "#" + object.attributes['id']
+
+
+class Animate(XML):
+    """
+    animate an attribute of an element over time
+    """
+    def __init__(self, attributeName, **attributes):
+        if "object" in attributes:
+            obj = attributes["object"]
+            del attributes["object"]
+            assert 'id' in obj.attributes
+            attributes['xlink:href'] = "#" + obj.attributes['id']
+            assert attributeName in obj.attributes
+        if 'fill' not in attributes:
+            attributes['fill'] = "freeze"
+        super().__init__("animate", attributeName=attributeName, **attributes)
+
+
+class AnimateMotion(XML):
+    """
+    define how an element moves along a motion path
+    """
+    def __init__(self, path, **attributes):
+        if isinstance(path, str):
+            super().__init__("animateMotion", path=path, **attributes)
+        else:
+            assert isinstance(path, Path)
+            path = MPath(path)
+            super().__init__("animateMotion", path, **attributes)
+
+
+class AnimateTransform(XML):
+    """
+    animate a transformation attribute on its target element
+    """
+    def __init__(self, type, from_, to, **attributes):
+        if 'object' in attributes:
+            obj = attributes['object']
+            del attributes['object']
+            assert 'id' in obj.attributes
+            attributes['xlink:href'] = "#" + obj.attributes['id']
+        super().__init__("animateTransform", type=type, to=to, attributeName="transform", **attributes)
+
+
+class Set(XML):
+    """
+    just set the value of an attribute for a specified duration
+    """
+    def __init__(self, attributeName, to, **attributes):
+        if 'object' in attributes:
+            obj = attributes['object']
+            del attributes['object']
+            assert 'id' in obj.attributes
+            attributes['xlink:href'] = "#" + obj.attributes['id']
+        super().__init__("set", attributeName=attributeName, to=to, **attributes)
 
 
 svg = SVG(500, 100)
-svg.append_object(Circle("circle", 50, 50, 30, "orange"))
-svg.append_object(Rectangle("rect", 30, 30, 30, 30, "blue"))
-svg.append_object(Text("text", 50, 50, "red", "test"))
-svg.append_animation(Animation("circle", "cx", 50, 450, "1s", "click"))
-svg.append_animation(Set("rect", "opacity", 0, "click"))
-svg.append_animation(Animation("text", "x", 50, 450, "1s", "click"))
-print(svg.get_smil())
+
+circle = Circle(50, 50, 30, fill='orange', id='circle')
+svg.append(circle)
+text = Text(50, 50, "test", fill='red', id='text')
+svg.append(text)
+rect = Rect(30, 30, 30, 30, fill='blue', id='rect')
+svg.append(rect)
+
+svg.append(Animate('cx', from_=50, to=450, dur='1s', begin='click', object=circle))
+svg.append(Set('opacity', 0, begin='click', object=rect))
+svg.append(Animate('x', from_=50, to=450, dur='1s', begin='click', object=text))
+
+print(svg)
 with open("test.html", "w") as f:
-    f.write(svg.get_smil())
+    f.write(svg.to_string())
