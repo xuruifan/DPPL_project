@@ -111,7 +111,7 @@ class AnimateTransform(XML):
     """
     animate a transformation attribute on its target element
     """
-    def __init__(self, type, from_, to, **attributes):
+    def __init__(self, type, to, **attributes):
         if 'object' in attributes:
             obj = attributes['object']
             del attributes['object']
