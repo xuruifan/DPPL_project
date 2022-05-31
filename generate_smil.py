@@ -27,12 +27,7 @@ class XML():
     def to_string(self, indent=0):
         s = "  " * indent + "<" + self.name
         for key, value in self.attributes.items():
-            s += " " + key + "="
-            if isinstance(value, str):
-                s += '"' + value + '"'
-            else:
-                assert isinstance(value, int)
-                s += str(value)
+            s += f' {key}="{value}"'
         if self.children or self.text:
             s += ">\n"
             for child in self.children:
@@ -46,7 +41,8 @@ class XML():
 
 class SVG(XML):
     def __init__(self, width, height, *children, **attributes):
-        super().__init__("svg", *children, width=width, height=height, **attributes)
+        attributes["xmlns:xlink"] = "http://www.w3.org/1999/xlink"
+        super().__init__("svg", *children, width="100%", height="100%", xmlns="http://www.w3.org/2000/svg", version="1.1", viewbox=f"0 0 {width} {height}", **attributes)
 
 
 class Circle(XML):
@@ -147,5 +143,5 @@ svg.append(Set('opacity', 0, begin='click', object=rect))
 svg.append(Animate('x', from_=50, to=450, dur='1s', begin='click', object=text))
 
 print(svg)
-with open("test.html", "w") as f:
+with open("test.svg", "w") as f:
     f.write(svg.to_string())
