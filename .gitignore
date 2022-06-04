@@ -1,3 +1,5 @@
 .idea/
 test.html
 test.svg
+output/
+__pycache__/

@@ -1,0 +1,61 @@
+?start: terms
+
+?term: for
+| "{" terms "}"
+| object_init
+| shape_init
+| action object
+| move
+| duration
+
+?terms: (term ";")* term
+
+for: "for" "(" X "=" exp "->" exp ")" term
+
+object_init: X "=" array
+shape_init: object ":=" shape
+
+move: "move" object "by" exp "," exp
+?!action: "appear" | "disappear" | "ignore" | "consider"
+
+duration: "duration" N term
+// duration: "duration" N term2
+
+// ?term2: for2
+// | "{" terms2 "}"
+// | move
+
+// for2: "for" "(" X "=" exp "->" exp ")" term2
+
+// ?terms2: (term2 ";")* term2
+
+?array: "Array" "(" N "," array ")" | one_shape
+
+?!one_shape: "Rect" | "Circle"
+
+?shape: rect | circle
+
+rect: "Rect" "(" exp "," exp "," exp "," exp ")"
+
+circle: "Circle" "(" exp "," exp "," exp ")"
+
+object: X ("[" exp "]")*
+
+?exp: exp_sum
+
+?!exp_prod: exp_prod "*" exp_atom
+| exp_prod "/" exp_atom
+| exp_atom
+
+?!exp_sum: exp_sum "+" exp_prod
+| exp_sum "-" exp_prod
+| exp_prod
+
+?exp_atom: N
+| X
+| "(" exp ")"
+
+%import common.INT -> N
+%import common.CNAME -> X
+%import common.WS
+%ignore WS

@@ -129,19 +129,24 @@ class Set(XML):
         super().__init__("set", attributeName=attributeName, to=to, **attributes)
 
 
-svg = SVG(500, 100)
+def main():
+    svg = SVG(500, 100)
 
-circle = Circle(50, 50, 30, fill='orange', id='circle')
-svg.append(circle)
-text = Text(50, 50, "test", fill='red', id='text')
-svg.append(text)
-rect = Rect(30, 30, 30, 30, fill='blue', id='rect')
-svg.append(rect)
+    circle = Circle(50, 50, 30, fill='orange', id='circle')
+    svg.append(circle)
+    text = Text(50, 50, "test", fill='red', id='text')
+    svg.append(text)
+    rect = Rect(30, 30, 30, 30, fill='blue', id='rect')
+    svg.append(rect)
 
-svg.append(Animate('cx', from_=50, to=450, dur='1s', begin='click', object=circle))
-svg.append(Set('opacity', 0, begin='click', object=rect))
-svg.append(Animate('x', from_=50, to=450, dur='1s', begin='click', object=text))
+    svg.append(Animate('cx', from_=50, to=450, dur='1s', begin='click', object=circle))
+    svg.append(Set('opacity', 0, begin='click', object=rect))
+    svg.append(Animate('x', from_=50, to=450, dur='1s', begin='click', object=text))
 
-print(svg)
-with open("test.svg", "w") as f:
-    f.write(svg.to_string())
+    print(svg)
+    with open("test.svg", "w") as f:
+        f.write(svg.to_string())
+
+
+if __name__ == "__main__":
+    main()
