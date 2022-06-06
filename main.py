@@ -69,6 +69,8 @@ def eval_exp(tree: Union[Tree, Token], state: EvalState):
         return lhs - rhs
       else:
         raise Exception(f'unexpected operator {tree.children[1].data}')
+    elif tree.data == 'exp_max':
+      return max(eval_exp(child, state) for child in tree.children)
     else:
       raise Exception(f'unexpected node {tree.data}')
   else:
