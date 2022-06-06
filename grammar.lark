@@ -42,6 +42,9 @@ circle: "Circle" "(" exp "," exp "," exp ")"
 object: X ("[" exp "]")*
 
 ?exp: exp_sum
+| exp_max
+
+?!exp_max: "max" "(" exp_sum "," exp_sum ")"
 
 ?!exp_prod: exp_prod "*" exp_atom
 | exp_prod "/" exp_atom

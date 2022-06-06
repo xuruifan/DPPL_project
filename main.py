@@ -56,6 +56,10 @@ def eval_exp(tree: Union[Tree, Token], state: EvalState):
         return lhs / rhs
       else:
         raise Exception(f'unexpected operator {tree.children[1].data}')
+    elif tree.data == 'exp_max':
+      lhs = eval_exp(tree.children[2], state)
+      rhs = eval_exp(tree.children[4], state)
+      return max(lhs, rhs)
     elif tree.data == 'exp_sum':
       lhs = eval_exp(tree.children[0], state)
       rhs = eval_exp(tree.children[2], state)
@@ -247,22 +251,22 @@ def main():
   tree = parser.parse("""
   C = Array(2, Array(2, Rect));
   for (i = 0 -> 2) for (j = 0 -> 2) {
-    C[i][j] := Rect(i*50+200, j*50+200, 30, 30);
+    C[i][j] := Rect(i*50+300, j*50+300, 30, 30);
     appear C[i][j]
   };
   A = Array(2, Array(2, Circle));
   for (i = 0 -> 2) for (j = 0 -> 2) {
-    A[i][j] := Circle(150-i*50, j*50, 10);
+    A[i][j] := Circle(265-i*50-j*50, j*50+315, 5);
     appear A[i][j]
   };
   B = Array(2, Array(2, Circle));
   for (i = 0 -> 2) for (j = 0 -> 2) {
-    B[i][j] := Circle(i*50, 150-j*50, 20);
+    B[i][j] := Circle(315+i*50, 265-i*50-j*50, 5);
     appear B[i][j]
   };
   tmp = Array(2, Array(2, Circle));
   for (i = 0 -> 2) for (j = 0 -> 2)
-    tmp[i][j] := Circle(i*50+200, j*50+200, 10);
+    tmp[i][j] := Circle(i*50+315, j*50+315, 10);
   duration 1
     for (i = 0 -> 2) for (j = 0 -> 2) {
       move A[i][j] by 10, 0;
@@ -271,8 +275,8 @@ def main():
   for (time = 0 -> 2) {
     duration 3
       for (i = 0 -> 2) for (j = 0 -> 2) {
-        move A[i][j] by 10, 0;
-        move B[i][j] by 0, 10
+        move A[i][j] by 30, 0;
+        move B[i][j] by 0, 30
       };
     for (i = 0 -> 2) for (j = 0 -> 2) {
       ignore A[i][j];
@@ -280,8 +284,33 @@ def main():
     };
     duration 2
       for (i = 0 -> 2) for (j = 0 -> 2) {
-        move A[i][j] by 10, 0;
-        move B[i][j] by 0, 10
+        move A[i][j] by 20, 0;
+        move B[i][j] by 0, 20
+      };
+    for (i = 0 -> 2) for (j = 0 -> 2) {
+      consider A[i][j];
+      consider B[i][j]
+    }
+  };
+  for (time = 0 -> 2) {
+    for(i= 0 -> time) {
+      disappear A[i][time-i];
+      disappear B[i][time-i];
+      appear tmp[i][time-i]
+    };
+    duration 3
+      for (i = 0 -> 2) for (j = max(0, time+1-i) -> 2) {
+        move A[i][j] by 30, 0;
+        move B[i][j] by 0, 30
+      };
+    for (i = 0 -> 2) for (j = 0 -> 2) {
+      ignore A[i][j];
+      ignore B[i][j]
+    };
+    duration 2
+      for (i = 0 -> 2) for (j = max(0, time+1-i) -> 2) {
+        move A[i][j] by 20, 0;
+        move B[i][j] by 0, 20
       };
     for (i = 0 -> 2) for (j = 0 -> 2) {
       consider A[i][j];
