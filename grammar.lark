@@ -35,9 +35,9 @@ duration: "duration" N term
 
 ?shape: rect | circle
 
-rect: "Rect" "(" exp "," exp "," exp "," exp ")"
+rect: "Rect" "(" exp "," exp "," exp "," exp ")" ("colored" COLOR)?
 
-circle: "Circle" "(" exp "," exp "," exp ")"
+circle: "Circle" "(" exp "," exp "," exp ")" ("colored" COLOR)?
 
 object: X ("[" exp "]")*
 
@@ -58,7 +58,10 @@ object: X ("[" exp "]")*
 | "(" exp ")"
 | exp_max
 
+COLOR: HEXDIGIT~6 | HEXDIGIT~3
+
 %import common.INT -> N
 %import common.CNAME -> X
 %import common.WS
+%import common.HEXDIGIT
 %ignore WS

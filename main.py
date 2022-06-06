@@ -15,9 +15,11 @@ def get_parser():
 class Rect:
   width: int
   height: int
+  fill: str
 @dataclass(frozen=True)
 class Circle:
   r: int
+  fill: str
 @dataclass
 class Variable:
   name: str
@@ -129,18 +131,26 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
       assert dims[i] <= state.arrays[var].shape[i]
     shape_node = tree.children[1]
     if state.arrays[var].object_shape == 'Rect':
-      assert len(shape_node.children) == 4
+      assert len(shape_node.children) == 4 or len(shape_node.children) == 5
       x = eval_exp(shape_node.children[0], state)
       y = eval_exp(shape_node.children[1], state)
       width = eval_exp(shape_node.children[2], state)
       height = eval_exp(shape_node.children[3], state)
-      value = Rect(width, height)
+      if len(shape_node.children) == 5:
+        fill = shape_node.children[4].value
+      else:
+        fill = 'ff0000'
+      value = Rect(width, height, fill)
     elif state.arrays[var].object_shape == 'Circle':
-      assert len(shape_node.children) == 3
+      assert len(shape_node.children) == 3 or len(shape_node.children) == 4
       x = eval_exp(shape_node.children[0], state)
       y = eval_exp(shape_node.children[1], state)
       r = eval_exp(shape_node.children[2], state)
-      value = Circle(r)
+      if len(shape_node.children) == 4:
+        fill = shape_node.children[3].value
+      else:
+        fill = '00ff00'
+      value = Circle(r, fill)
     else:
       raise Exception(f'unexpected object shape {state.arrays[var].object_shape}')
     variable = Variable(
@@ -177,7 +187,7 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
           y=var.y,
           width=var.value.width,
           height=var.value.height,
-          fill='#ff0000',
+          fill='#'+var.value.fill,
           id=var.name
         )
         x_name = 'x'
@@ -187,7 +197,7 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
           cx=var.x,
           cy=var.y,
           r=var.value.r,
-          fill='#00ff00',
+          fill='#'+var.value.fill,
           id=var.name
         )
         x_name = 'cx'
@@ -249,17 +259,17 @@ def main():
   tree = parser.parse("""
   C = Array(2, Array(2, Rect));
   for (i = 0 -> 2) for (j = 0 -> 2) {
-    C[i][j] := Rect(i*50+300, j*50+300, 30, 30);
+    C[i][j] := Rect(i*50+300, j*50+300, 30, 30) colored ff0000;
     appear C[i][j]
   };
   A = Array(2, Array(2, Circle));
   for (i = 0 -> 2) for (j = 0 -> 2) {
-    A[i][j] := Circle(265-i*50-j*50, j*50+315, 5);
+    A[i][j] := Circle(265-i*50-j*50, j*50+315, 5) colored 00ff00;
     appear A[i][j]
   };
   B = Array(2, Array(2, Circle));
   for (i = 0 -> 2) for (j = 0 -> 2) {
-    B[i][j] := Circle(315+i*50, 265-i*50-j*50, 5);
+    B[i][j] := Circle(315+i*50, 265-i*50-j*50, 5) colored 0000ff;
     appear B[i][j]
   };
   tmp = Array(2, Array(2, Circle));
