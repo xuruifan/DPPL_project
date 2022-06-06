@@ -65,6 +65,8 @@ def eval_exp(tree: Union[Tree, Token], state: EvalState):
         return lhs - rhs
       else:
         raise Exception(f'unexpected operator {tree.children[1].data}')
+    elif tree.data == 'exp_max':
+      return max(eval_exp(child, state) for child in tree.children)
     else:
       raise Exception(f'unexpected node {tree.data}')
   else:
@@ -252,7 +254,7 @@ def main():
   };
   A = Array(2, Array(2, Circle));
   for (i = 0 -> 2) for (j = 0 -> 2) {
-    A[i][j] := Circle(150-i*50, j*50, 10);
+    A[i][j] := Circle(max(150-i*50, 0), j*50, 10);
     appear A[i][j]
   };
   B = Array(2, Array(2, Circle));

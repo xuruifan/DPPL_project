@@ -54,6 +54,9 @@ object: X ("[" exp "]")*
 ?exp_atom: N
 | X
 | "(" exp ")"
+| exp_max
+
+exp_max: "max" "(" (exp ",")* exp ")"
 
 %import common.INT -> N
 %import common.CNAME -> X
