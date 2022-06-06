@@ -56,10 +56,6 @@ def eval_exp(tree: Union[Tree, Token], state: EvalState):
         return lhs / rhs
       else:
         raise Exception(f'unexpected operator {tree.children[1].data}')
-    elif tree.data == 'exp_max':
-      lhs = eval_exp(tree.children[2], state)
-      rhs = eval_exp(tree.children[4], state)
-      return max(lhs, rhs)
     elif tree.data == 'exp_sum':
       lhs = eval_exp(tree.children[0], state)
       rhs = eval_exp(tree.children[2], state)
