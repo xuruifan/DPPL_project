@@ -13,13 +13,27 @@ class XML():
         self.children.append(child)
 
     def __setitem__(self, key, value):
-        self.attributes[key] = value
+        if isinstance(key, str):
+            self.attributes[key] = value
+        else:
+            assert isinstance(key, int)
+            self.children[key] = value
 
     def __getitem__(self, key):
-        return self.attributes[key]
+        if isinstance(key, str):
+            return self.attributes[key]
+        else:
+            assert isinstance(key, int)
+            return self.children[key]
 
     def __delitem__(self, key):
         del self.attributes[key]
+
+    def __iter__(self):
+        return iter(self.children)
+
+    def __len__(self):
+        return len(self.children)
 
     def __str__(self):
         return self.to_string()
@@ -72,6 +86,11 @@ class MPath(XML):
         self.object = object
         assert 'id' in object.attributes
         self['xlink:href'] = "#" + object.attributes['id']
+
+
+class Group(XML):
+    def __init__(self, *children, **attributes):
+        super().__init__("g", *children, **attributes)
 
 
 class Animate(XML):

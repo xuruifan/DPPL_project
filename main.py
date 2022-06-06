@@ -1,9 +1,11 @@
 from lark import Lark, Tree, Token
+from sympy import im
 import generate
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple, Union, Optional
 from collections import defaultdict
 from copy import deepcopy
+from argparse import ArgumentParser
 
 
 def get_parser():
@@ -44,8 +46,33 @@ class EvalState:
   variable_by_depth: List[Variable] = field(default_factory=list)
   depth: int = 0
 
-  svgs: List[generate.SVG] = field(default_factory=list)
+  svg: generate.SVG = field(default_factory=lambda: generate.SVG(500, 500))
 
+  @property
+  def objects(self):
+    return self.svg[0]
+
+  @property
+  def timeline(self):
+    return self.svg[1]
+
+  def __post_init__(self):
+    self.svg.append(generate.Group(id='objects'))
+    self.svg.append(generate.Group(id='timeline'))
+    animations = generate.Group(x=0, id=f'group_0')
+    point = generate.Animate(
+      'x', to=10,
+      dur=f'0.01s',
+      id=f'animate_0',
+    )
+    animations.append(point)
+    self.add_animations(animations)
+
+  def add_object(self, object):
+    self.objects.append(object)
+
+  def add_animations(self, group):
+    self.timeline.append(group)
 
 def eval_exp(tree: Union[Tree, Token], state: EvalState):
   if isinstance(tree, Tree):
@@ -129,6 +156,7 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
     assert len(dims) == len(state.arrays[var].shape)
     for i in range(len(dims)):
       assert dims[i] <= state.arrays[var].shape[i]
+    name = '_'.join([var] + [str(i) for i in dims])
     shape_node = tree.children[1]
     if state.arrays[var].object_shape == 'Rect':
       assert len(shape_node.children) == 4 or len(shape_node.children) == 5
@@ -141,6 +169,7 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
       else:
         fill = 'ff0000'
       value = Rect(width, height, fill)
+      object = generate.Rect(x, y, width, height, fill='#'+fill, id=name, opacity=0)
     elif state.arrays[var].object_shape == 'Circle':
       assert len(shape_node.children) == 3 or len(shape_node.children) == 4
       x = eval_exp(shape_node.children[0], state)
@@ -151,10 +180,14 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
       else:
         fill = '00ff00'
       value = Circle(r, fill)
+      object = generate.Circle(x, y, r, fill='#'+fill, id=name, opacity=0)
     else:
       raise Exception(f'unexpected object shape {state.arrays[var].object_shape}')
+    state.add_object(object)
+    for point in state.timeline:
+      point.append(generate.Set('opacity', 0, object=object, begin=f'{point.children[0]["id"]}.begin'))
     variable = Variable(
-      name='_'.join([var] + [str(i) for i in dims]),
+      name=name,
       x=x,
       y=y,
       value=value,
@@ -173,52 +206,46 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
     obj.moving = (by1, by2)
     return state
   elif tree.data == 'duration':
-    svg = generate.SVG(width=500, height=500)
     time = eval_exp(tree.children[0], state)
     state = eval(tree.children[1], state)
+    animations = generate.Group(x=0, id=f'group_{len(state.timeline)}')
+    point = generate.Animate(
+      'x', to=10,
+      dur=f'{time}s',
+      id=f'animate_{len(state.timeline)}',
+      begin=f'{state.timeline[-1][0]["id"]}.end'
+    )
+    point_dict = {'begin': f'{point["id"]}.begin'}
+    animations.append(point)
+    state.add_animations(animations)
     previous_moving = []
-    animations = []
-    for var in state.variable_by_depth:
-      if not var.appeared:
-        continue
+    for var, object in zip(state.variable_by_depth, state.objects):
+      object_dict = {'object': object}
+      animations.append(generate.Set('opacity', 1 if var.appeared else 0, **point_dict, **object_dict))
       if isinstance(var.value, Rect):
-        obj = generate.Rect(
-          x=var.x,
-          y=var.y,
-          width=var.value.width,
-          height=var.value.height,
-          fill='#'+var.value.fill,
-          id=var.name
-        )
         x_name = 'x'
         y_name = 'y'
       elif isinstance(var.value, Circle):
-        obj = generate.Circle(
-          cx=var.x,
-          cy=var.y,
-          r=var.value.r,
-          fill='#'+var.value.fill,
-          id=var.name
-        )
         x_name = 'cx'
         y_name = 'cy'
       else:
         raise Exception(f'unexpected object type {type(var.value)}')
-      svg.append(obj)
       if var.moving:
         if var.moving[0] != 0:
           animations.append(generate.Animate(
             attributeName=x_name,
             by=var.moving[0],
             dur=f'{time}s',
-            object=obj
+            **object_dict,
+            **point_dict
           ))
         if var.moving[1] != 0:
           animations.append(generate.Animate(
             attributeName=y_name,
             by=var.moving[1],
             dur=f'{time}s',
-            object=obj
+            **object_dict,
+            **point_dict
           ))
         copy = deepcopy(var)
         if not var.ignored:
@@ -232,9 +259,6 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
         if not var.ignored:
           for previous in previous_moving:
             assert not covered(previous, var)
-    for animation in animations:
-      svg.append(animation)
-    state.svgs.append(svg)
     return state
   else:
     assert tree.data == 'term'
@@ -254,88 +278,22 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
     return state
 
 
+def get_args(args=None):
+  parser = ArgumentParser()
+  parser.add_argument('--input', type=str, default='input.txt')
+  parser.add_argument('--output', type=str, default='test.svg')
+  return parser.parse_args(args)
+
+
 def main():
-  parser = get_parser()
-  tree = parser.parse("""
-  C = Array(2, Array(2, Rect));
-  for (i = 0 -> 2) for (j = 0 -> 2) {
-    C[i][j] := Rect(i*50+300, j*50+300, 30, 30) colored ff0000;
-    appear C[i][j]
-  };
-  A = Array(2, Array(2, Circle));
-  for (i = 0 -> 2) for (j = 0 -> 2) {
-    A[i][j] := Circle(265-i*50-j*50, j*50+315, 5) colored 00ff00;
-    appear A[i][j]
-  };
-  B = Array(2, Array(2, Circle));
-  for (i = 0 -> 2) for (j = 0 -> 2) {
-    B[i][j] := Circle(315+i*50, 265-i*50-j*50, 5) colored 0000ff;
-    appear B[i][j]
-  };
-  tmp = Array(2, Array(2, Circle));
-  for (i = 0 -> 2) for (j = 0 -> 2)
-    tmp[i][j] := Circle(i*50+315, j*50+315, 10);
-  duration 1
-    for (i = 0 -> 2) for (j = 0 -> 2) {
-      move A[i][j] by 10, 0;
-      move B[i][j] by 0, 10
-    };
-  for (time = 0 -> 2) {
-    duration 3
-      for (i = 0 -> 2) for (j = 0 -> 2) {
-        move A[i][j] by 30, 0;
-        move B[i][j] by 0, 30
-      };
-    for (i = 0 -> 2) for (j = 0 -> 2) {
-      ignore A[i][j];
-      ignore B[i][j]
-    };
-    duration 2
-      for (i = 0 -> 2) for (j = 0 -> 2) {
-        move A[i][j] by 20, 0;
-        move B[i][j] by 0, 20
-      };
-    for (i = 0 -> 2) for (j = 0 -> 2) {
-      consider A[i][j];
-      consider B[i][j]
-    }
-  };
-  for (time = 0 -> 2) {
-    for(i= 0 -> time) {
-      disappear A[i][time-i];
-      disappear B[i][time-i];
-      appear tmp[i][time-i]
-    };
-    duration 3
-      for (i = 0 -> 2) for (j = max(0, time+1-i) -> 2) {
-        move A[i][j] by 30, 0;
-        move B[i][j] by 0, 30
-      };
-    for (i = 0 -> 2) for (j = 0 -> 2) {
-      ignore A[i][j];
-      ignore B[i][j]
-    };
-    duration 2
-      for (i = 0 -> 2) for (j = max(0, time+1-i) -> 2) {
-        move A[i][j] by 20, 0;
-        move B[i][j] by 0, 20
-      };
-    for (i = 0 -> 2) for (j = 0 -> 2) {
-      consider A[i][j];
-      consider B[i][j]
-    }
-  }
-  """)
   from pathlib import Path
+  args = get_args()
+  parser = get_parser()
+  tree = parser.parse(Path(args.input).read_text())
   state = EvalState()
   state = eval(tree, state)
-  output_dir = Path('output')
-  output_dir.mkdir(exist_ok=True)
-  for file in output_dir.glob('*.svg'):
-    file.unlink()
-  for i, svg in enumerate(state.svgs):
-    with open(f'output/{i}.svg', 'w') as f:
-      f.write(svg.to_string())
+  with open(args.output, 'w') as f:
+    f.write(state.svg.to_string())
 
 if __name__ == '__main__':
   main()
