@@ -5,7 +5,7 @@
 | object_init
 | shape_init
 | action object
-| move
+// | move
 | duration
 
 ?terms: (term ";")* term
@@ -13,21 +13,21 @@
 for: "for" "(" X "=" exp "->" exp ")" term
 
 object_init: X "=" array
-shape_init: object ":=" shape
+shape_init: object ":=" shape ("colored" COLOR)?
 
 move: "move" object "by" exp "," exp
 ?!action: "appear" | "disappear" | "ignore" | "consider"
 
-duration: "duration" N term
-// duration: "duration" N term2
+// duration: "duration" N term
+duration: "duration" N term2
 
-// ?term2: for2
-// | "{" terms2 "}"
-// | move
+?term2: for2
+| "{" terms2 "}"
+| move
 
-// for2: "for" "(" X "=" exp "->" exp ")" term2
+for2: "for" "(" X "=" exp "->" exp ")" term2 -> for
 
-// ?terms2: (term2 ";")* term2
+?terms2: (term2 ";")* term2 -> terms
 
 ?array: "Array" "(" N "," array ")" | one_shape
 
@@ -35,9 +35,9 @@ duration: "duration" N term
 
 ?shape: rect | circle
 
-rect: "Rect" "(" exp "," exp "," exp "," exp ")" ("colored" COLOR)?
+rect: "Rect" "(" exp "," exp "," exp "," exp ")"
 
-circle: "Circle" "(" exp "," exp "," exp ")" ("colored" COLOR)?
+circle: "Circle" "(" exp "," exp "," exp ")"
 
 object: X ("[" exp "]")*
 

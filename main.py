@@ -61,7 +61,7 @@ class EvalState:
     self.svg.append(generate.Group(id='timeline'))
     animations = generate.Group(x=0, id=f'group_0')
     point = generate.Animate(
-      'x', to=10,
+      'x', to=0,
       dur=f'0.01s',
       id=f'animate_0',
     )
@@ -158,26 +158,26 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
       assert dims[i] <= state.arrays[var].shape[i]
     name = '_'.join([var] + [str(i) for i in dims])
     shape_node = tree.children[1]
+    if len(tree.children) == 3:
+      fill = tree.children[2].value
+    else:
+      fill = None
     if state.arrays[var].object_shape == 'Rect':
-      assert len(shape_node.children) == 4 or len(shape_node.children) == 5
+      assert len(shape_node.children) == 4
       x = eval_exp(shape_node.children[0], state)
       y = eval_exp(shape_node.children[1], state)
       width = eval_exp(shape_node.children[2], state)
       height = eval_exp(shape_node.children[3], state)
-      if len(shape_node.children) == 5:
-        fill = shape_node.children[4].value
-      else:
+      if fill == None:
         fill = 'ff0000'
       value = Rect(width, height, fill)
       object = generate.Rect(x, y, width, height, fill='#'+fill, id=name, opacity=0)
     elif state.arrays[var].object_shape == 'Circle':
-      assert len(shape_node.children) == 3 or len(shape_node.children) == 4
+      assert len(shape_node.children) == 3
       x = eval_exp(shape_node.children[0], state)
       y = eval_exp(shape_node.children[1], state)
       r = eval_exp(shape_node.children[2], state)
-      if len(shape_node.children) == 4:
-        fill = shape_node.children[3].value
-      else:
+      if fill == None:
         fill = '00ff00'
       value = Circle(r, fill)
       object = generate.Circle(x, y, r, fill='#'+fill, id=name, opacity=0)
@@ -210,7 +210,7 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
     state = eval(tree.children[1], state)
     animations = generate.Group(x=0, id=f'group_{len(state.timeline)}')
     point = generate.Animate(
-      'x', to=10,
+      'x', to=0,
       dur=f'{time}s',
       id=f'animate_{len(state.timeline)}',
       begin=f'{state.timeline[-1][0]["id"]}.end'

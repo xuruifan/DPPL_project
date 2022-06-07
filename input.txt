@@ -85,5 +85,5 @@ disappear A[2][2];
 disappear B[2][2];
 appear tmp[2][2];
 duration 2 {
-  consider A[2][2]
+  move tmp[2][2] by 0, 0
 }
