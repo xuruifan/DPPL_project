@@ -31,13 +31,16 @@ for2: "for" "(" X "=" exp "->" exp ")" term2 -> for
 
 ?array: "Array" "(" N "," array ")" | one_shape
 
-?!one_shape: "Rect" | "Circle"
+?!one_shape: RECT | CIRCLE
+
+RECT: "Rect"
+CIRCLE: "Circle"
 
 ?shape: rect | circle
 
-rect: "Rect" "(" exp "," exp "," exp "," exp ")"
+rect: RECT "(" exp "," exp "," exp "," exp ")"
 
-circle: "Circle" "(" exp "," exp "," exp ")"
+circle: CIRCLE "(" exp "," exp "," exp ")"
 
 object: X ("[" exp "]")*
 

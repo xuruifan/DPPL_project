@@ -1,38 +1,34 @@
 from lark import Lark, Tree, Token
-from sympy import im
-import generate
+from lark.tree import Meta
 from dataclasses import dataclass, field
-from typing import List, Dict, Tuple, Union, Optional
+from typing import List, Dict, Tuple, Union
 from collections import defaultdict
 from copy import deepcopy
 from argparse import ArgumentParser
+
+import generate
+from objects import *
+from check import covered, overlap
+
+
+class EvalException(Exception):
+  def __init__(self, message, node: Union[Tree, Token]):
+    super().__init__(message)
+    if isinstance(node, Tree):
+      self.line = node.meta.line
+      self.column = node.meta.column
+    else:
+      self.line = node.line
+      self.column = node.column
+
+  def __str__(self):
+    return f'Line {self.line}: {self.message}'
 
 
 def get_parser():
   with open('grammar.lark') as f:
     return Lark(f)
 
-
-@dataclass(frozen=True)
-class Rect:
-  width: int
-  height: int
-  fill: str
-@dataclass(frozen=True)
-class Circle:
-  r: int
-  fill: str
-@dataclass
-class Variable:
-  name: str
-  x: int
-  y: int
-  value: Union[Rect, Circle]
-  depth: int
-  # only consider `ignored` when `appeared` is True
-  appeared: bool = False
-  ignored: bool = False
-  moving: Optional[Tuple[int, int]] = None
 @dataclass
 class Array:
   values: Dict[Tuple[int, ...], Variable]
@@ -82,7 +78,10 @@ def eval_exp(tree: Union[Tree, Token], state: EvalState):
       if tree.children[1].value == '*':
         return lhs * rhs
       elif tree.children[1].value == '/':
-        return lhs / rhs
+        try:
+          return lhs / rhs
+        except ZeroDivisionError:
+          raise EvalException('Division by zero', tree.children[1])
       else:
         raise Exception(f'unexpected operator {tree.children[1].data}')
     elif tree.data == 'exp_sum':
@@ -107,23 +106,16 @@ def eval_exp(tree: Union[Tree, Token], state: EvalState):
     else:
       raise Exception(f'unexpected token type {tree.type}')
 
-def overlap(a: Variable, b: Variable):
-  # TODO: implement
-  return False
-
-def covered(moving: Variable, static: Variable):
-  # TODO: implement
-  return False
-
 def eval(tree: Tree, state: EvalState) -> EvalState:
-  def assert_int(x):
+  def assert_int(x, node):
     import math
-    assert math.isclose(x, int(x))
+    if not math.isclose(x, int(x)):
+      raise EvalException(f'{x} is not an integer', node)
     return int(x)
 
   def get_object(tree: Tree, state: EvalState):
       var = tree.children[0].value
-      dims = tuple(assert_int(eval_exp(node, state)) for node in tree.children[1:])
+      dims = tuple(assert_int(eval_exp(node, state), node) for node in tree.children[1:])
       return var, dims
   if tree.data == 'terms':
     for term in tree.children:
@@ -144,7 +136,7 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
     dims = []
     node = tree.children[1]
     while isinstance(node, Tree):
-      dim = assert_int(eval_exp(node.children[0], state))
+      dim = assert_int(eval_exp(node.children[0], state), node.children[0])
       assert dim > 0
       dims.append(dim)
       node = node.children[1]
@@ -152,10 +144,13 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
     return state
   elif tree.data == 'shape_init':
     var, dims = get_object(tree.children[0], state)
-    assert var in state.arrays
-    assert len(dims) == len(state.arrays[var].shape)
+    if not var in state.arrays:
+      raise EvalException(f'{var} is not an array', tree.children[0])
+    if len(dims) != len(state.arrays[var].shape):
+      raise EvalException(f'{var} has wrong number of dimensions', tree.children[0])
     for i in range(len(dims)):
-      assert dims[i] <= state.arrays[var].shape[i]
+      if dims[i] > state.arrays[var].shape[i]:
+        raise EvalException(f'index {i} out of bounds', tree.children[0])
     name = '_'.join([var] + [str(i) for i in dims])
     shape_node = tree.children[1]
     if len(tree.children) == 3:
@@ -163,20 +158,22 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
     else:
       fill = None
     if state.arrays[var].object_shape == 'Rect':
-      assert len(shape_node.children) == 4
-      x = eval_exp(shape_node.children[0], state)
-      y = eval_exp(shape_node.children[1], state)
-      width = eval_exp(shape_node.children[2], state)
-      height = eval_exp(shape_node.children[3], state)
+      if shape_node.children[0].value != 'Rect':
+        raise EvalException(f'Declared as Rect but got {shape_node.children[0].value}', shape_node)
+      x = eval_exp(shape_node.children[1], state)
+      y = eval_exp(shape_node.children[2], state)
+      width = eval_exp(shape_node.children[3], state)
+      height = eval_exp(shape_node.children[4], state)
       if fill == None:
         fill = 'ff0000'
       value = Rect(width, height, fill)
       object = generate.Rect(x, y, width, height, fill='#'+fill, id=name, opacity=0)
     elif state.arrays[var].object_shape == 'Circle':
-      assert len(shape_node.children) == 3
-      x = eval_exp(shape_node.children[0], state)
-      y = eval_exp(shape_node.children[1], state)
-      r = eval_exp(shape_node.children[2], state)
+      if shape_node.children[0].value != 'Circle':
+        raise EvalException(f'Declared as Circle but got {shape_node.children[0].value}', shape_node)
+      x = eval_exp(shape_node.children[1], state)
+      y = eval_exp(shape_node.children[2], state)
+      r = eval_exp(shape_node.children[3], state)
       if fill == None:
         fill = '00ff00'
       value = Circle(r, fill)
@@ -202,7 +199,10 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
     by1 = eval_exp(tree.children[1], state)
     by2 = eval_exp(tree.children[2], state)
     obj = state.arrays[var].values[dims]
-    assert obj.moving is None and obj.appeared
+    if obj.moving is not None:
+      raise EvalException(f'{var} is already moving', tree.children[0])
+    if not obj.appeared:
+      raise EvalException(f'{var} has not appeared', tree.children[0])
     obj.moving = (by1, by2)
     return state
   elif tree.data == 'duration':
@@ -250,7 +250,8 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
         copy = deepcopy(var)
         if not var.ignored:
           for previous in previous_moving:
-            assert not overlap(var, previous)
+            if overlap(var, previous):
+              raise EvalException(f'{var.name} overlaps {previous.name}', tree)
           previous_moving.append(copy)
         var.x += var.moving[0]
         var.y += var.moving[1]
@@ -258,7 +259,8 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
       else:
         if not var.ignored:
           for previous in previous_moving:
-            assert not covered(previous, var)
+            if covered(previous, var):
+              raise EvalException(f'{var.name} is covered by {previous.name}', tree)
     return state
   else:
     assert tree.data == 'term'
