@@ -1,11 +1,31 @@
-from os import stat
 from geometer import *
 import objects
+from dataclasses import replace
 
 
+def cached(cache):
+  def decorator(f):
+    def wrapper(a, b):
+      rel = (a.x - b.x, a.y - b.y)
+      if b.moving is not None:
+        m = (a.moving[0] - b.moving[0], a.moving[1] - b.moving[1])
+      else:
+        m = a.moving
+      slot = (rel, m, replace(a.value, fill=''), replace(b.value, fill=''))
+      if slot in cache:
+        return cache[slot]
+      ret = f(a, b)
+      cache[slot] = ret
+      return ret
+    return wrapper
+  return decorator
+
+
+overlap_cache = {}
+@cached(overlap_cache)
 def overlap(a: objects.Variable, b: objects.Variable):
   ma, mb = a.moving, b.moving
-  assert ma is not None or mb is not None
+  assert ma is not None and mb is not None
   ma, mb = Point(ma[0], ma[1]), Point(mb[0], mb[1])
   m = mb - ma
   pa, pb = Point(a.x, a.y), Point(b.x, b.y)
@@ -61,6 +81,8 @@ def overlap(a: objects.Variable, b: objects.Variable):
     raise Exception('Unsupported object type')
 
 
+covered_cache = {}
+@cached(covered_cache)
 def covered(moving: objects.Variable, static: objects.Variable):
   m = Point(moving.moving[0], moving.moving[1])
   pm = Point(moving.x, moving.y)
@@ -82,7 +104,7 @@ def covered(moving: objects.Variable, static: objects.Variable):
     if moving.value.width == static.moving.width:
       if moving.value.height == static.moving.height:
         p = Point(x0, y0) + ps
-        return l.contains(p)[0]
+        return l.contains(p)
       else:
         p = Segment(Point(x0, y0), Point(x0, y1)) + ps
     else:
