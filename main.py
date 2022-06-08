@@ -13,13 +13,11 @@ from check import covered, overlap
 
 class EvalException(Exception):
   def __init__(self, message, node: Union[Tree, Token]):
-    super().__init__(message)
+    self.message = message
     if isinstance(node, Tree):
-      self.line = node.meta.line
-      self.column = node.meta.column
-    else:
-      self.line = node.line
-      self.column = node.column
+      node = node.data
+    self.line = node.line
+    self.column = node.column
 
   def __str__(self):
     return f'Line {self.line}: {self.message}'
@@ -293,7 +291,11 @@ def main():
   parser = get_parser()
   tree = parser.parse(Path(args.input).read_text())
   state = EvalState()
-  state = eval(tree, state)
+  try:
+    state = eval(tree, state)
+  except EvalException as e:
+    print(f'Error: {e}')
+    return
   with open(args.output, 'w') as f:
     f.write(state.svg.to_string())
 
