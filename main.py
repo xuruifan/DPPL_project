@@ -37,7 +37,7 @@ class Array:
 
 @dataclass
 class EvalState:
-  variables: defaultdict[str, List[int]] = field(default_factory=lambda: defaultdict(list))
+  variables: 'defaultdict[str, List[int]]' = field(default_factory=lambda: defaultdict(list))
   arrays: Dict[str, Array] = field(default_factory=dict)
   variable_by_depth: List[Variable] = field(default_factory=list)
   depth: int = 0

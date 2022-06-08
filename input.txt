@@ -16,13 +16,13 @@ for (i = 0 -> 2) for (j = 0 -> 2) {
 tmp = Array(2, Array(2, Circle));
 for (i = 0 -> 2) for (j = 0 -> 2)
   tmp[i][j] := Circle(i*50+315, j*50+315, 10) colored ffff00;
-duration 1
+duration 1:
   for (i = 0 -> 2) for (j = 0 -> 2) {
     move A[i][j] by 10, 0;
     move B[i][j] by 0, 10
   };
 for (time = 0 -> 2) {
-  duration 3
+  duration 3:
     for (i = 0 -> 2) for (j = 0 -> 2) {
       move A[i][j] by 30, 0;
       move B[i][j] by 0, 30
@@ -31,7 +31,7 @@ for (time = 0 -> 2) {
     ignore A[i][j];
     ignore B[i][j]
   };
-  duration 2
+  duration 2:
     for (i = 0 -> 2) for (j = 0 -> 2) {
       move A[i][j] by 20, 0;
       move B[i][j] by 0, 20
@@ -47,7 +47,7 @@ for (time = 0 -> 2) {
     disappear B[i][time-i];
     appear tmp[i][time-i]
   };
-  duration 3
+  duration 3:
     for (i = 0 -> 2) for (j = max(0, time+1-i) -> 2) {
       move A[i][j] by 30, 0;
       move B[i][j] by 0, 30
@@ -56,7 +56,7 @@ for (time = 0 -> 2) {
     ignore A[i][j];
     ignore B[i][j]
   };
-  duration 2
+  duration 2:
     for (i = 0 -> 2) for (j = max(0, time+1-i) -> 2) {
       move A[i][j] by 20, 0;
       move B[i][j] by 0, 20
@@ -71,19 +71,19 @@ for (i = 1 -> 2) {
   disappear B[i][3-i];
   appear tmp[i][3-i]
 };
-duration 3 {
+duration 3: {
   move A[2][2] by 30, 0;
   move B[2][2] by 0, 30
 };
 ignore A[2][2];
 ignore B[2][2];
-duration 2 {
+duration 2: {
   move A[2][2] by 20, 0;
   move B[2][2] by 0, 20
 };
 disappear A[2][2];
 disappear B[2][2];
 appear tmp[2][2];
-duration 2 {
+duration 2: {
   move tmp[2][2] by 0, 0
 }

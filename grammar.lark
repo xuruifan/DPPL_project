@@ -19,7 +19,7 @@ move: "move" object "by" exp "," exp
 ?!action: "appear" | "disappear" | "ignore" | "consider"
 
 // duration: "duration" N term
-duration: "duration" N term2
+duration: "duration" N ":" term2
 
 ?term2: for2
 | "{" terms2 "}"
