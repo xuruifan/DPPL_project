@@ -1,5 +1,4 @@
 from lark import Lark, Tree, Token
-from lark.tree import Meta
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple, Union
 from collections import defaultdict
@@ -9,6 +8,7 @@ from argparse import ArgumentParser
 import generate
 from objects import *
 from check import covered, overlap
+from type import type, TypeException, Typing, eval_exp
 
 
 class EvalException(Exception):
@@ -67,42 +67,6 @@ class EvalState:
 
   def add_animations(self, group):
     self.timeline.append(group)
-
-def eval_exp(tree: Union[Tree, Token], state: EvalState):
-  if isinstance(tree, Tree):
-    if tree.data == 'exp_prod':
-      lhs = eval_exp(tree.children[0], state)
-      rhs = eval_exp(tree.children[2], state)
-      if tree.children[1].value == '*':
-        return lhs * rhs
-      elif tree.children[1].value == '/':
-        try:
-          return lhs / rhs
-        except ZeroDivisionError:
-          raise EvalException('Division by zero', tree.children[1])
-      else:
-        raise Exception(f'unexpected operator {tree.children[1].data}')
-    elif tree.data == 'exp_sum':
-      lhs = eval_exp(tree.children[0], state)
-      rhs = eval_exp(tree.children[2], state)
-      if tree.children[1].value == '+':
-        return lhs + rhs
-      elif tree.children[1].value == '-':
-        return lhs - rhs
-      else:
-        raise Exception(f'unexpected operator {tree.children[1].data}')
-    elif tree.data == 'exp_max':
-      return max(eval_exp(child, state) for child in tree.children)
-    else:
-      raise Exception(f'unexpected node {tree.data}')
-  else:
-    assert isinstance(tree, Token)
-    if tree.type == 'N':
-      return int(tree.value)
-    elif tree.type == 'X':
-      return state.variables[tree.value][-1]
-    else:
-      raise Exception(f'unexpected token type {tree.type}')
 
 def eval(tree: Tree, state: EvalState) -> EvalState:
   def assert_int(x, node):
@@ -282,6 +246,7 @@ def get_args(args=None):
   parser = ArgumentParser()
   parser.add_argument('--input', type=str, default='input.txt')
   parser.add_argument('--output', type=str, default='test.svg')
+  parser.add_argument('--print-type', action='store_true', default=False)
   return parser.parse_args(args)
 
 
@@ -290,6 +255,21 @@ def main():
   args = get_args()
   parser = get_parser()
   tree = parser.parse(Path(args.input).read_text())
+
+  tree_typing = deepcopy(tree)
+  typing = Typing()
+  try:
+    typing = type(tree_typing, typing)
+  except TypeException as e:
+    print(f'Type Error: {e}')
+    return
+  if args.print_type:
+    print("{")
+    for object, state in typing.arrays.items():
+      print(f"\t{object}: {'Disappear' if state[0] else 'Appear'} {'Consider' if state[0] else 'Ignore'}"
+        f" {'Move' if state[0] else 'Static'},")
+    print("}")
+
   state = EvalState()
   try:
     state = eval(tree, state)

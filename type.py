@@ -1,17 +1,13 @@
-from lark import Lark, Tree, Token
-from lark.tree import Meta
+from lark import Tree, Token
 from dataclasses import dataclass, field
-from typing import List, Dict, Tuple, Union
+from typing import List, Dict, Union
 from collections import defaultdict
-from copy import deepcopy
 from argparse import ArgumentParser
 
-import generate
 from objects import *
-from check import covered, overlap
 
 
-class EvalException(Exception):
+class TypeException(Exception):
     def __init__(self, message, node: Union[Tree, Token]):
         self.message = message
         if isinstance(node, Tree):
@@ -23,18 +19,14 @@ class EvalException(Exception):
         return f'Line {self.line}: {self.message}'
 
 
-def get_parser():
-    with open('grammar.lark') as f:
-        return Lark(f)
-
 
 @dataclass
-class EvalState:
+class Typing:
     variables: 'defaultdict[str, List[int]]' = field(default_factory=lambda: defaultdict(list))
     arrays: Dict[str, List[int]] = field(default_factory=dict)
 
 
-def eval_exp(tree: Union[Tree, Token], state: EvalState):
+def eval_exp(tree: Union[Tree, Token], state: Typing):
     if isinstance(tree, Tree):
         if tree.data == 'exp_prod':
             lhs = eval_exp(tree.children[0], state)
@@ -45,7 +37,7 @@ def eval_exp(tree: Union[Tree, Token], state: EvalState):
                 try:
                     return lhs / rhs
                 except ZeroDivisionError:
-                    raise EvalException('Division by zero', tree.children[1])
+                    raise TypeException('Division by zero', tree.children[1])
             else:
                 raise Exception(f'unexpected operator {tree.children[1].data}')
         elif tree.data == 'exp_sum':
@@ -71,25 +63,25 @@ def eval_exp(tree: Union[Tree, Token], state: EvalState):
             raise Exception(f'unexpected token type {tree.type}')
 
 
-def union(first: EvalState, second: EvalState) -> EvalState:
+def union(first: Typing, second: Typing) -> Typing:
     return second
 
 
-def eval(tree: Tree, state: EvalState) -> EvalState:
+def type(tree: Tree, state: Typing) -> Typing:
     def assert_int(x, node):
         import math
         if not math.isclose(x, int(x)):
-            raise EvalException(f'{x} is not an integer', node)
+            raise TypeException(f'{x} is not an integer', node)
         return int(x)
 
-    def get_object(tree: Tree, state: EvalState):
+    def get_object(tree: Tree, state: Typing):
         var = tree.children[0].value
         dims = tuple(assert_int(eval_exp(node, state), node) for node in tree.children[1:])
         return var, dims
 
     if tree.data == 'terms':
         for term in tree.children:
-            state = eval(term, state)
+            state = type(term, state)
         return state
     elif tree.data == 'for':
         nv1 = eval_exp(tree.children[1], state)
@@ -97,7 +89,7 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
         var = tree.children[0].value
         while nv1 <= nv2:
             state.variables[var].append(nv1)
-            state = eval(tree.children[3], state)
+            state = type(tree.children[3], state)
             state.variables[var].pop()
             nv1 += 1
         return state
@@ -111,13 +103,13 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
         var, dims = get_object(tree.children[0], state)
         obj = state.arrays[var + str(dims)]
         if obj[2] == 1:
-            raise EvalException(f'{var} is already moving', tree.children[0])
+            raise TypeException(f'{var} is already moving', tree.children[0])
         if obj[0] == 1:
-            raise EvalException(f'{var} has not appeared', tree.children[0])
+            raise TypeException(f'{var} has not appeared', tree.children[0])
         obj[2] = 1
         return state
     elif tree.data == 'duration':
-        state = eval(tree.children[1], state)
+        state = type(tree.children[1], state)
         for object in state.arrays:
             state.arrays[object][2] = 0
         return state
@@ -138,32 +130,3 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
             raise Exception(f'unexpected action {tree.children[0].value}')
         state.arrays[var + str(dims)] = obj
         return state
-
-
-def get_args(args=None):
-    parser = ArgumentParser()
-    parser.add_argument('--input', type=str, default='input.txt')
-    parser.add_argument('--output', type=str, default='test.svg')
-    return parser.parse_args(args)
-
-
-def main():
-    from pathlib import Path
-    args = get_args()
-    parser = get_parser()
-    tree = parser.parse(Path(args.input).read_text())
-    state = EvalState()
-    try:
-        state = eval(tree, state)
-    except EvalException as e:
-        print(f'Error: {e}')
-        return
-    print("{")
-    for object, state in state.arrays.items():
-        print("\t", object, ":", "Disappear" if state[0] else "Appear", "Consider" if state[0] else "Ignore",
-              "Move" if state[0] else "Static", ",")
-    print("}")
-
-
-if __name__ == '__main__':
-    main()
