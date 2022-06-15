@@ -244,8 +244,8 @@ def eval(tree: Tree, state: EvalState) -> EvalState:
 
 def get_args(args=None):
   parser = ArgumentParser()
-  parser.add_argument('--input', type=str, default='input.txt')
-  parser.add_argument('--output', type=str, default='test.svg')
+  parser.add_argument('--input', type=str, default='demo.txt')
+  parser.add_argument('--output', type=str, default='demo.svg')
   parser.add_argument('--print-type', action='store_true', default=False)
   return parser.parse_args(args)
 

@@ -9,5 +9,7 @@ pip install -r requirements.txt
 如果使用`--print-type`参数，则会在生成输出文件前，打印其中变量的类型。
 例如：
 ```
-python3 main.py --input input.txt --output test.svg --print-type
+python3 main.py --input demo.txt --output demo.svg --print-type
 ```
+
+可以在浏览器中打开`demo.svg`，查看生成的动画。
